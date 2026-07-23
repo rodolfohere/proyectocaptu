@@ -1,0 +1,2 @@
+# proyectocaptu
+crear un app 
