@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cactus Burger">
+  <meta name="theme-color" content="#F5A623">
+  <title>🌵 CACTUS BURGER</title>
+
+  <!-- Favicon emoji -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌵</text></svg>">
+
+  <!-- WhatsApp / redes preview -->
+  <meta property="og:title"       content="🌵 CACTUS BURGER — Menú Digital">
+  <meta property="og:description" content="Hamburguesas, Salchipapas, Perros Calientes y más. Food Truck · Charallave, Edo. Miranda">
+  <meta property="og:type"        content="website">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    *  { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { min-height: 100vh; }
+    body { background: #0C0C10; color: #F5F5F7;
+           font-family: 'Nunito', sans-serif;
+           -webkit-font-smoothing: antialiased; }
+    /* Loading spinner shown while Babel compiles */
+    #splash { min-height: 100vh; display: flex; flex-direction: column;
+              align-items: center; justify-content: center; gap: 18px;
+              background: #0C0C10; }
+    .ld-ring { width: 48px; height: 48px; border: 3px solid #26262E;
+               border-top-color: #F5A623; border-radius: 50%;
+               animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ld-title { font-family: 'Bebas Neue', sans-serif;
+                font-size: 30px; letter-spacing: 3px; color: #F5A623; }
+    .ld-sub   { font-size: 13px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <!-- Shown while JS loads -->
+  <div id="root">
+    <div id="splash">
+      <div class="ld-ring"></div>
+      <p class="ld-title">🌵 CACTUS BURGER</p>
+      <p class="ld-sub">Cargando menú...</p>
+    </div>
+  </div>
+
+  <!-- React 18 -->
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Recharts (includes d3 deps) -->
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
+  <!-- Babel Standalone (transpiles JSX in the browser) -->
+  <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+const { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
+
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+
+/* ── CONFIG ─────────────────────────────────────────── */
+const WA_NUMBER  = "584122060825";
+const NTFY_TOPIC = "cactus-burger-charallave";
+const OWNER_PIN  = "1234";
+
+/* ── REWARDS ─────────────────────────────────────────── */
+const REWARDS = [
+  { pts:50,  label:"Refresco Gratis",           emoji:"🥤", color:"#3B82F6" },
+  { pts:80,  label:"Papas Fritas Gratis",       emoji:"🍟", color:"#F59E0B" },
+  { pts:120, label:"Hamburguesa Simple Gratis", emoji:"🍔", color:"#10B981" },
+  { pts:180, label:"Combo con Descuento",       emoji:"🎊", color:"#8B5CF6" },
+];
+
+/* ── MENU ────────────────────────────────────────────── */
+const CATS = [
+  { id:"combos", label:"Combos", emoji:"🎁", items:[
+    { id:"c1", emoji:"🌵", name:"Combo Cactus",  desc:"2 Hamburgesas Simple + 2 Papelón con Limón",    price:5.50, isCombo:true },
+    { id:"c2", emoji:"🔥", name:"Combo Fuego",   desc:"2 Hamburguesas de Carne + 2 Refrescos",         price:8.00, isCombo:true },
+    { id:"c3", emoji:"🌭", name:"Combo Perrito", desc:"2 Perros Esp. + 2 Salchipapas Sencilla",        price:9.00, isCombo:true },
+    { id:"c4", emoji:"⚡", name:"Combo Rápido",  desc:"1 Hamburguesa Simple + 1 Malta + 1 Papas",      price:4.00, isCombo:true },
+  ]},
+  { id:"hamburguesas", label:"Hamburguesas", emoji:"🍔", items:[
+    { id:1, emoji:"🥩", name:"Hamburguesa de Carne",    desc:"Jugosa carne de res a la parrilla",       price:3.50 },
+    { id:2, emoji:"🍗", name:"Hamburguesa de Pollo",    desc:"Pollo crujiente con aderezos de la casa", price:3.00 },
+    { id:3, emoji:"🐷", name:"Hamburguesa de Cerdo",    desc:"Cerdo tierno con salsa especial",         price:3.50 },
+    { id:4, emoji:"🍔", name:"Hamburguesa Simple",      desc:"Clásica y deliciosa",                     price:2.00 },
+  ]},
+  { id:"salchipapas", label:"Salchipapas", emoji:"🍟", items:[
+    { id:5, emoji:"🍟", name:"Salchipapas Sencilla", desc:"Papas doradas con salchicha",           price:2.50 },
+    { id:6, emoji:"⭐", name:"Salchipapas Especial", desc:"Con queso, salsas y toppings premium",  price:3.50 },
+  ]},
+  { id:"perros", label:"Perros Calientes", emoji:"🌭", items:[
+    { id:7, emoji:"🌭", name:"Perro Caliente Simple",   desc:"Clásico con mostaza y kétchup",         price:2.00 },
+    { id:8, emoji:"🌟", name:"Perro Caliente Especial", desc:"Con topping completo y salsa especial", price:3.00 },
+  ]},
+  { id:"bebidas", label:"Bebidas", emoji:"🥤", items:[
+    { id:9,  emoji:"🍺", name:"Malta",             desc:"Refrescante malta bien fría",    price:1.00 },
+    { id:10, emoji:"🍋", name:"Papelón con Limón", desc:"Bebida tradicional venezolana",  price:1.00 },
+    { id:11, emoji:"🥤", name:"Refresco",          desc:"Tu sabor preferido bien helado", price:1.00 },
+  ]},
+  { id:"extras", label:"Extras", emoji:"✨", items:[
+    { id:12, emoji:"🍟", name:"Ración de Papas Fritas", desc:"Crujientes papas doradas al momento", price:1.50 },
+  ]},
+];
+
+const PAYMENTS = [
+  { id:"efectivo",      label:"Efectivo",      icon:"💵" },
+  { id:"pago-movil",    label:"Pago Móvil",    icon:"📱" },
+  { id:"transferencia", label:"Transferencia", icon:"🏦" },
+  { id:"zelle",         label:"Zelle",         icon:"💸" },
+  { id:"binance",       label:"Binance",       icon:"🔶" },
+];
+
+const EXP_CATS = [
+  { id:"ingredientes", label:"Ingredientes", icon:"🥩" },
+  { id:"empaque",      label:"Empaque",      icon:"📦" },
+  { id:"servicios",    label:"Servicios",    icon:"⚡" },
+  { id:"transporte",   label:"Transporte",   icon:"🚗" },
+  { id:"limpieza",     label:"Limpieza",     icon:"🧴" },
+  { id:"otros",        label:"Otros",        icon:"📋" },
+];
+
+const C = {
+  bg:"#0C0C10", sf:"#16161D", hi:"#1E1E28",
+  gold:"#F5A623", green:"#2EBD6B", red:"#E74C3C",
+  blue:"#3B82F6", purple:"#8B5CF6",
+  white:"#F5F5F7", muted:"#6B7280", light:"#A1A1AA", border:"#26262E",
+};
+const PIE_COLORS = [C.gold, C.green, C.blue, C.purple, C.red];
+
+/* ── UTILS ───────────────────────────────────────────── */
+const fmt  = n => "$" + Number(n).toFixed(2);
+const pad  = n => String(n).padStart(3,"0");
+const dkey = () => new Date().toISOString().split("T")[0];
+const tstr = () => new Date().toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit"});
+const lsGet = (k, d=null) => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):d; } catch { return d; }};
+const lsSet = (k, v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} };
+
+/* ── CLUB HELPERS ────────────────────────────────────── */
+const cp    = p  => p.replace(/\D/g,"");
+const getCl = p  => lsGet("cb-club-"+cp(p), null);
+const savCl = (p,d) => lsSet("cb-club-"+cp(p), d);
+const getMbr= () => lsGet("cb-mbr",[]);
+const addMbr= p  => { const c=cp(p); if(!c) return; const l=getMbr(); if(!l.includes(c)) lsSet("cb-mbr",[...l,c]); };
+const award = (phone, name, amount, oid) => {
+  if (!cp(phone)) return null;
+  const pts = Math.floor(amount);
+  const ex  = getCl(phone)||{name:"",phone:cp(phone),points:0,history:[]};
+  const up  = {...ex, name:name||ex.name, points:ex.points+pts,
+    history:[{date:dkey(),oid,pts,total:amount},...ex.history].slice(0,40)};
+  savCl(phone,up); addMbr(phone); return up;
+};
+const deduct = (phone, pts) => {
+  const ex = getCl(phone); if(!ex) return null;
+  const up = {...ex, points:Math.max(0,ex.points-pts),
+    history:[{date:dkey(),oid:"CANJE",pts:-pts,total:0},...ex.history].slice(0,40)};
+  savCl(phone,up); return up;
+};
+const nxtRw = pts => REWARDS.find(r => r.pts > pts)||null;
+const wkSt  = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay()+(d.getDay()===0?-6:1)); return d.toISOString().split("T")[0]; };
+const moSt  = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"; };
+
+/* ── DAYS ────────────────────────────────────────────── */
+const DAYS_ES = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+/* ── CUSTOMER MEMORY ─────────────────────────────────── */
+const getCustP   = phone => lsGet("cb-cp-"+cp(phone), null);
+const saveCustP  = (phone, d) => lsSet("cb-cp-"+cp(phone), d);
+const getCustList= () => lsGet("cb-cp-list", []);
+const regCust    = phone => { const c=cp(phone); if(!c) return; const l=getCustList(); if(!l.includes(c)) lsSet("cb-cp-list",[...l,c]); };
+const updateCust = (phone, name, address, payment, delivery, total, oid) => {
+  if (!cp(phone)) return;
+  const ex = getCustP(phone)||{phone:cp(phone),name:"",address:"",payment:"efectivo",delivery:"retiro",totalSpent:0,orderCount:0,lastOrder:null};
+  const up = {...ex, name:name||ex.name, address:address||ex.address, payment:payment||ex.payment, delivery:delivery||ex.delivery,
+    totalSpent:+(ex.totalSpent+total).toFixed(2), orderCount:ex.orderCount+1, lastOrder:dkey()};
+  saveCustP(phone, up); regCust(phone); return up;
+};
+
+/* ── PROMO HELPERS ───────────────────────────────────── */
+const getPromos   = () => lsGet("cb-promos", []);
+const savePromos  = p => lsSet("cb-promos", p);
+
+/* ── CHART TOOLTIP ───────────────────────────────────── */
+const CTip = ({active, payload, label, money}) => {
+  if (!active||!payload||!payload.length) return null;
+  return (
+    <div style={{background:C.hi,border:"1px solid "+C.border,borderRadius:10,padding:"8px 12px"}}>
+      {label ? <p style={{color:C.muted,fontSize:11,marginBottom:4}}>{label}</p> : null}
+      {payload.map((p,i) => (
+        <p key={i} style={{color:p.fill||p.stroke||C.gold,fontSize:13,fontWeight:800}}>
+          {p.name}: {money && typeof p.value==="number" ? fmt(p.value) : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+/* ── CSS ─────────────────────────────────────────────── */
+const CSS = [
+  "@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap');",
+  "*{box-sizing:border-box;margin:0;padding:0}",
+  "::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#26262E;border-radius:4px}",
+  "@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}",
+  "@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}",
+  "@keyframes fadeUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}",
+  "@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}",
+  "@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}",
+  ".ic{transition:transform .2s,background-color .2s}.ic:hover{transform:translateY(-2px);background-color:#1E1E28!important}",
+  ".ab{transition:transform .15s,background-color .15s;cursor:pointer}.ab:hover{background-color:#E8950F!important}",
+  ".ab.pop{animation:pop .38s ease}",
+  ".tb{transition:color .2s;cursor:pointer}.tb:hover{color:#F5A623!important}",
+  ".pk{transition:background-color .1s,transform .1s;cursor:pointer}.pk:hover{background-color:#2A2A36!important;transform:scale(1.05)}.pk:active{transform:scale(.94)}",
+  ".sk{animation:shake .5s ease}",
+  "input,textarea{outline:none}",
+].join("\n");
+
+/* ══════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════ */
+function App() {
+
+  /* menu */
+  const [cat,    setCat]    = useState(0);
+  const [cart,   setCart]   = useState({});
+  const [copen,  setCopen]  = useState(false);
+  const [popped, setPopped] = useState(null);
+
+  /* order flow: idle | checkout | sending | sent */
+  const [status,  setStatus]  = useState("idle");
+  const [oNum,    setONum]    = useState(null);
+  const [sTotal,  setSTotal]  = useState(0);
+  const [sItems,  setSItems]  = useState([]);
+  const [sCust,   setSCust]   = useState(null);
+  const [earned,  setEarned]  = useState(null);
+
+  /* checkout form */
+  const [cust,   setCust]   = useState({name:"",address:"",notes:"",payment:"efectivo",delivery:"retiro",phone:""});
+  const [errs,   setErrs]   = useState({});
+
+  /* club */
+  const [clubOpen,   setClubOpen]   = useState(false);
+  const [clubQ,      setClubQ]      = useState("");
+  const [clubRes,    setClubRes]    = useState(null);
+  const [clubNF,     setClubNF]     = useState(false);
+
+  /* config */
+  const [cfgWA,   setCfgWA]   = useState(WA_NUMBER);
+  const [cfgNtfy, setCfgNtfy] = useState(NTFY_TOPIC);
+  const [cfgPin,  setCfgPin]  = useState(OWNER_PIN);
+
+  /* owner panel */
+  const [taps,    setTaps]    = useState(0);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinVal,  setPinVal]  = useState("");
+  const [pinErr,  setPinErr]  = useState(false);
+  const [owOpen,  setOwOpen]  = useState(false);
+  const [owTab,   setOwTab]   = useState("dash");
+  const [orders,  setOrders]  = useState([]);
+  const [selO,    setSelO]    = useState(null);
+  const [mbrs,    setMbrs]    = useState([]);
+  const [selM,    setSelM]    = useState(null);
+  const [dAmt,    setDAmt]    = useState("");
+  const [dOk,     setDOk]     = useState(false);
+  const [hSearch, setHSearch] = useState("");
+  const [cfgSaved,setCfgSaved]= useState(false);
+  const [nWA,     setNWA]     = useState("");
+  const [nNtfy,   setNNtfy]   = useState("");
+  const [nPin,    setNPin]    = useState("");
+  /* egresos */
+  const [expenses, setExpenses] = useState([]);
+  const [expForm,  setExpForm]  = useState({type:"costo",category:"ingredientes",desc:"",amount:"",date:dkey()});
+  const [expFilter,setExpFilter]= useState("week");
+  const [expAdded, setExpAdded] = useState(false);
+  /* cliente */
+  const [foundCust, setFoundCust] = useState(null);
+  /* promos */
+  const [promos,    setPromos]    = useState([]);
+  const [promoForm, setPromoForm] = useState({name:"",type:"pct",val:"",appliesTo:"all",catId:"hamburguesas",days:[1,2,3,4,5],active:true});
+  const [promoSaved,setPromoSaved]= useState(false);
+
+  useEffect(() => {
+    const c = lsGet("cb-cfg");
+    if (c) { if(c.wa) setCfgWA(c.wa); if(c.ntfy) setCfgNtfy(c.ntfy); if(c.pin) setCfgPin(c.pin); }
+  }, []);
+
+  /* cart */
+  const addI = item => { setCart(p=>({...p,[item.id]:{...item,qty:(p[item.id]?.qty||0)+1}})); setPopped(item.id); setTimeout(()=>setPopped(null),380); };
+  const remI = id   => setCart(p=>{const n={...p};if(n[id]?.qty>1)n[id]={...n[id],qty:n[id].qty-1};else delete n[id];return n;});
+  const items = Object.values(cart);
+  const count = items.reduce((s,i)=>s+i.qty,0);
+
+  /* active promos for today */
+  const todayDow   = new Date().getDay();
+  const activePromos = promos.filter(p => p.active && p.days.includes(todayDow));
+  const getItemPromo = item => {
+    const catId = CATS.find(c=>c.items.some(i=>i.id===item.id))?.id;
+    return activePromos.find(p =>
+      p.appliesTo==="all" ||
+      (p.appliesTo==="cat" && catId===p.catId) ||
+      (p.appliesTo==="item" && String(item.id)===String(p.itemId))
+    ) || null;
+  };
+  const effPr = (price, promo) => {
+    if (!promo) return price;
+    if (promo.type==="pct") return Math.max(0,+(price*(1-promo.val/100)).toFixed(2));
+    if (promo.type==="fix") return Math.max(0,+(price-promo.val).toFixed(2));
+    return price;
+  };
+  const total = items.reduce((s,i)=>s + effPr(i.price, getItemPromo(i))*i.qty, 0);
+
+  const buildMsg = (num, its, tot, c) => {
+    const lines = its.map(i=>i.qty+"x "+i.name).join("\n");
+    const note  = c.notes ? "\n\u{1F4DD} "+c.notes : "";
+    const pay   = PAYMENTS.find(p=>p.id===c.payment);
+    const delv  = c.delivery==="delivery" ? ("\u{1F6F5} DELIVERY\n\u{1F4CD} "+c.address) : "\u{1F3EA} RETIRO EN LOCAL";
+    return "🌵 *CACTUS BURGER* — Pedido #"+pad(num)+"\n👤 "+c.name+"\n"+delv+"\n"+(pay?pay.icon+" "+pay.label:c.payment)+"\n\n"+lines+note+"\n\n💰 *Total: "+fmt(tot)+"*\n⏰ "+tstr();
+  };
+
+  const confirmOrder = async () => {
+    const e = {};
+    if (!cust.name.trim())                                   e.name    = true;
+    if (cust.delivery==="delivery" && !cust.address.trim()) e.address = true;
+    setErrs(e);
+    if (Object.keys(e).length) return;
+    setStatus("sending");
+    const num  = Math.floor(Math.random()*900)+100;
+    const snap = [...items];
+    const tot  = total;
+    setONum(num); setSTotal(tot); setSItems(snap); setSCust({...cust});
+    const order = {id:num,date:dkey(),timestamp:new Date().toISOString(),
+      items:snap.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price})),
+      notes:cust.notes,customer:{...cust},total:tot};
+    try { const prev=lsGet("cb-orders",[]); lsSet("cb-orders",[...prev,order]); } catch {}
+    if (cust.phone) { const up=award(cust.phone,cust.name,tot,num); if(up) setEarned({pts:Math.floor(tot),total:up.points}); }
+    updateCust(cust.phone, cust.name, cust.address, cust.payment, cust.delivery, tot, num);
+    try { await fetch("https://ntfy.sh/"+cfgNtfy,{method:"POST",headers:{"Title":"🌵 Nuevo Pedido CACTUS BURGER","Priority":"high","Tags":"hamburger"},body:buildMsg(num,snap,tot,cust).replace(/\*/g,"")}); } catch {}
+    setCart({}); setCust({name:"",address:"",notes:"",payment:"efectivo",delivery:"retiro",phone:""}); setFoundCust(null); setStatus("sent");
+  };
+
+  const sendWA = () => { if(!sCust) return; window.open("https://wa.me/"+cfgWA+"?text="+encodeURIComponent(buildMsg(oNum,sItems,sTotal,sCust)),"_blank"); };
+  const reset  = () => { setStatus("idle"); setONum(null); setEarned(null); };
+
+  /* club */
+  const lookupClub = () => { const d=getCl(clubQ); if(d){setClubRes(d);setClubNF(false);}else{setClubRes(null);setClubNF(true);} };
+
+  /* owner PIN */
+  const tapLogo = () => { const n=taps+1; setTaps(n); if(n>=5){setTaps(0);setPinOpen(true);} };
+  const tapKey  = k  => {
+    if (k==="X") { setPinVal(p=>p.slice(0,-1)); return; }
+    if (pinVal.length>=4) return;
+    const next = pinVal+k; setPinVal(next);
+    if (next.length===4) setTimeout(()=>{
+      if (next===cfgPin) { setPinOpen(false); setPinVal(""); setPinErr(false); setOwOpen(true); loadOrders(); loadMbrs(); loadExpenses(); loadPromos(); }
+      else { setPinErr(true); setTimeout(()=>{setPinErr(false);setPinVal("");},900); }
+    },200);
+  };
+
+  /* owner data */
+  const loadOrders = () => setOrders(lsGet("cb-orders",[]));
+  const loadMbrs   = () => setMbrs(getMbr().map(p=>getCl(p)).filter(Boolean));
+  const clearOrders= () => { lsSet("cb-orders",[]); setOrders([]); };
+  const saveCfg    = () => {
+    const c={wa:nWA||cfgWA,ntfy:nNtfy||cfgNtfy,pin:nPin||cfgPin};
+    lsSet("cb-cfg",c);
+    if(nWA) setCfgWA(nWA); if(nNtfy) setCfgNtfy(nNtfy); if(nPin) setCfgPin(nPin);
+    setNWA(""); setNNtfy(""); setNPin(""); setCfgSaved(true); setTimeout(()=>setCfgSaved(false),2000);
+  };
+  const doDeduct = () => {
+    if (!selM||!dAmt) return;
+    const up = deduct(selM.phone,parseInt(dAmt));
+    if (up) { setSelM(up); setMbrs(m=>m.map(x=>x.phone===up.phone?up:x)); setDOk(true); setDAmt(""); setTimeout(()=>setDOk(false),2000); }
+  };
+  /* egresos */
+  const loadExpenses = () => setExpenses(lsGet("cb-exp",[]));
+  const addExpense   = () => {
+    if (!expForm.desc.trim()||!expForm.amount) return;
+    const e = {id:Date.now(),date:expForm.date||dkey(),timestamp:new Date().toISOString(),
+      type:expForm.type,category:expForm.category,desc:expForm.desc,amount:parseFloat(expForm.amount)||0};
+    const prev=lsGet("cb-exp",[]); lsSet("cb-exp",[...prev,e]);
+    setExpenses(ex=>[...ex,e]);
+    setExpForm(f=>({...f,desc:"",amount:"",date:dkey()}));
+    setExpAdded(true); setTimeout(()=>setExpAdded(false),1500);
+  };
+  const delExpense = id => { const n=expenses.filter(e=>e.id!==id); lsSet("cb-exp",n); setExpenses(n); };
+  /* promos */
+  const loadPromos = () => setPromos(getPromos());
+  const addPromo   = () => {
+    if (!promoForm.name.trim()||!promoForm.val) return;
+    const p = {...promoForm, id:Date.now(), val:parseFloat(promoForm.val)||0};
+    const next = [...getPromos(), p]; savePromos(next); setPromos(next);
+    setPromoForm(f=>({...f,name:"",val:""})); setPromoSaved(true); setTimeout(()=>setPromoSaved(false),1500);
+  };
+  const delPromo   = id => { const n=getPromos().filter(p=>p.id!==id); savePromos(n); setPromos(n); };
+  const togglePromo= id => { const n=getPromos().map(p=>p.id===id?{...p,active:!p.active}:p); savePromos(n); setPromos(n); };
+  /* customer phone lookup (checkout) */
+  const onPhoneChange = phone => {
+    setCust(f=>({...f,phone}));
+    if (cp(phone).length >= 7) {
+      const prof = getCustP(phone);
+      if (prof) {
+        setFoundCust(prof);
+        setCust(f=>({...f, phone, name:prof.name||f.name, address:prof.address||f.address, payment:prof.payment||f.payment, delivery:prof.delivery||f.delivery}));
+      } else { setFoundCust(null); }
+    } else { setFoundCust(null); }
+  };
+
+  /* stats */
+  const todayO  = orders.filter(o=>o.date===dkey());
+  const todayR  = todayO.reduce((s,o)=>s+o.total,0);
+  const totalR  = orders.reduce((s,o)=>s+o.total,0);
+  const weekR   = orders.filter(o=>o.date>=wkSt()).reduce((s,o)=>s+o.total,0);
+  const monthR  = orders.filter(o=>o.date>=moSt()).reduce((s,o)=>s+o.total,0);
+  const avgTk   = orders.length ? (totalR/orders.length) : 0;
+  const iCounts = {};
+  orders.forEach(o=>o.items?.forEach(i=>{iCounts[i.name]=(iCounts[i.name]||0)+i.qty;}));
+  const topI    = Object.entries(iCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([n,q])=>({name:n.length>16?n.slice(0,14)+"...":n,qty:q}));
+
+  const rev7 = Array.from({length:7},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-(6-i));
+    const k=d.toISOString().split("T")[0];
+    const os=orders.filter(o=>o.date===k);
+    return {day:d.toLocaleDateString("es-VE",{weekday:"short"}).replace(".","").toUpperCase(), revenue:+os.reduce((s,o)=>s+o.total,0).toFixed(2), pedidos:os.length};
+  });
+  const rev14 = Array.from({length:14},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()-(13-i));
+    const k=d.toISOString().split("T")[0];
+    return {day:d.getDate()+"/"+(d.getMonth()+1), revenue:+orders.filter(o=>o.date===k).reduce((s,o)=>s+o.total,0).toFixed(2)};
+  });
+  const payC = PAYMENTS.map(p=>({name:p.label,icon:p.icon,value:orders.filter(o=>o.customer?.payment===p.id).length})).filter(p=>p.value>0);
+  const retN = orders.filter(o=>o.customer?.delivery==="retiro").length;
+  const delN = orders.filter(o=>o.customer?.delivery==="delivery").length;
+  const dTot = retN+delN||1;
+  const hourly = Array.from({length:24},(_,h)=>({h:String(h).padStart(2,"0")+"h",n:orders.filter(o=>new Date(o.timestamp).getHours()===h).length})).filter(d=>d.n>0);
+  const filtO = hSearch ? [...orders].reverse().filter(o=>o.customer?.name?.toLowerCase().includes(hSearch.toLowerCase())||String(o.id).includes(hSearch)) : [...orders].reverse();
+  const custL = {};
+  orders.forEach(o=>{const n=o.customer?.name||"Anónimo";if(!custL[n])custL[n]={name:n,count:0,total:0,last:o.date};custL[n].count++;custL[n].total+=o.total;if(o.date>custL[n].last)custL[n].last=o.date;});
+  const custs = Object.values(custL).sort((a,b)=>b.total-a.total);
+  /* expense stats */
+  const filtExp   = expenses.filter(e=>expFilter==="week"?e.date>=wkSt():expFilter==="month"?e.date>=moSt():true).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const expTot    = filtExp.reduce((s,e)=>s+e.amount,0);
+  const costTot   = filtExp.filter(e=>e.type==="costo").reduce((s,e)=>s+e.amount,0);
+  const gastTot   = filtExp.filter(e=>e.type==="gasto").reduce((s,e)=>s+e.amount,0);
+  const wkExpTot  = expenses.filter(e=>e.date>=wkSt()).reduce((s,e)=>s+e.amount,0);
+  const wkCostTot = expenses.filter(e=>e.date>=wkSt()&&e.type==="costo").reduce((s,e)=>s+e.amount,0);
+  const wkGastTot = expenses.filter(e=>e.date>=wkSt()&&e.type==="gasto").reduce((s,e)=>s+e.amount,0);
+  const moExpTot  = expenses.filter(e=>e.date>=moSt()).reduce((s,e)=>s+e.amount,0);
+  const allExpTot = expenses.reduce((s,e)=>s+e.amount,0);
+  const wkNeta    = weekR - wkExpTot;
+  const moNeta    = monthR - moExpTot;
+  const wkMargen  = weekR > 0 ? Math.round((wkNeta/weekR)*100) : 0;
+  /* expense by category (for chart) */
+  const expByCat  = EXP_CATS.map(c=>({name:c.label,icon:c.icon,value:+expenses.filter(e=>e.category===c.id).reduce((s,e)=>s+e.amount,0).toFixed(2)})).filter(c=>c.value>0);
+
+  const curCat = CATS[cat];
+
+  /* shared style helpers */
+  const card   = (extra={}) => ({background:C.sf,borderRadius:18,border:"1px solid "+C.border,padding:16,...extra});
+  const goldBtn= (extra={}) => ({background:C.gold,color:"#0C0C10",border:"none",borderRadius:14,fontFamily:"'Nunito'",fontWeight:900,cursor:"pointer",...extra});
+
+  /* ── SENT SCREEN ── */
+  if (status==="sent") return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'Nunito',sans-serif",color:C.white}}>
+      <style>{CSS}</style>
+      <div style={{textAlign:"center",maxWidth:380,width:"100%",animation:"fadeUp .4s ease"}}>
+        <div style={{fontSize:64,marginBottom:16,animation:"pulse 1.2s ease infinite"}}>✅</div>
+        <h1 style={{fontFamily:"'Bebas Neue'",fontSize:32,color:C.green,letterSpacing:2,marginBottom:6}}>Pedido Enviado!</h1>
+        <p style={{color:C.light,fontSize:14,marginBottom:4}}>Pedido <strong style={{color:C.gold}}>#{pad(oNum)}</strong> · <strong style={{color:C.gold}}>{fmt(sTotal)}</strong></p>
+        {sCust && <p style={{color:C.muted,fontSize:13,marginBottom:16}}>{sCust.delivery==="delivery" ? "🛵 Delivery" : "🏪 Retiro"} · {PAYMENTS.find(p=>p.id===sCust.payment)?.label}</p>}
+        {earned && (
+          <div style={{background:"linear-gradient(135deg,rgba(245,166,35,.18),rgba(245,166,35,.06))",border:"1px solid rgba(245,166,35,.4)",borderRadius:16,padding:"14px 18px",marginBottom:20}}>
+            <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.gold,letterSpacing:1}}>🌵 +{earned.pts} puntos Club Cactus</p>
+            <p style={{color:C.light,fontSize:13}}>Saldo: <strong style={{color:C.gold}}>{earned.total} pts</strong></p>
+            {nxtRw(earned.total) && <p style={{color:C.muted,fontSize:12,marginTop:4}}>{nxtRw(earned.total).pts - earned.total} pts para {nxtRw(earned.total).label}</p>}
+          </div>
+        )}
+        <p style={{color:C.muted,fontSize:13,marginBottom:22,lineHeight:1.7}}>Confirma por WhatsApp para mayor seguridad</p>
+        <button onClick={sendWA} style={{...goldBtn({padding:15,fontSize:16,width:"100%",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:10,borderRadius:16,background:"#25D366",color:"#fff"})}}>
+          📲 Confirmar por WhatsApp
+        </button>
+        <button onClick={reset} style={{width:"100%",padding:14,background:C.sf,color:C.light,border:"1px solid "+C.border,borderRadius:16,fontFamily:"'Nunito'",fontWeight:800,fontSize:15,cursor:"pointer"}}>
+          Hacer otro pedido
+        </button>
+      </div>
+    </div>
+  );
+
+  /* ── CHECKOUT SCREEN ── */
+  if (status==="checkout" || status==="sending") return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.white,fontFamily:"'Nunito',sans-serif",paddingBottom:100}}>
+      <style>{CSS}</style>
+      <div style={{background:C.sf,borderBottom:"1.5px solid "+C.border,padding:"14px 16px",position:"sticky",top:0,zIndex:10}}>
+        <div style={{maxWidth:600,margin:"0 auto",display:"flex",alignItems:"center",gap:14}}>
+          <button onClick={()=>setStatus("idle")} style={{background:"transparent",border:"none",color:C.gold,fontSize:22,cursor:"pointer",padding:4}}>←</button>
+          <div>
+            <h2 style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.gold,letterSpacing:2}}>DATOS DEL PEDIDO</h2>
+            <p style={{color:C.muted,fontSize:12}}>Completa tu información</p>
+          </div>
+        </div>
+      </div>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"16px 14px",display:"flex",flexDirection:"column",gap:14}}>
+
+        {/* mini cart */}
+        <div style={card()}>
+          <p style={{fontWeight:800,fontSize:13,color:C.light,marginBottom:10}}>🧾 Tu pedido</p>
+          {items.map(i => (
+            <div key={i.id} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:13}}>{i.qty}x {i.name}</span>
+              <span style={{fontSize:13,color:C.gold,fontWeight:700}}>{fmt(i.price*i.qty)}</span>
+            </div>
+          ))}
+          <div style={{borderTop:"1px solid "+C.border,paddingTop:10,marginTop:6,display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontWeight:800,color:C.light}}>Total</span>
+            <span style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.gold}}>{fmt(total)}</span>
+          </div>
+        </div>
+
+        {/* nombre */}
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:8}}>👤 Tu nombre <span style={{color:C.red}}>*</span></label>
+          <input value={cust.name} onChange={e=>setCust(p=>({...p,name:e.target.value}))} placeholder="¿Cómo te llamamos?" style={{width:"100%",background:C.sf,border:"1.5px solid "+(errs.name?C.red:C.border),borderRadius:12,padding:"12px 14px",color:C.white,fontFamily:"'Nunito'",fontSize:14}} />
+          {errs.name && <p style={{color:C.red,fontSize:12,marginTop:4}}>El nombre es obligatorio</p>}
+        </div>
+
+        {/* entrega */}
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:8}}>📦 Modo de entrega</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["retiro","🏪","RETIRO EN LOCAL"],["delivery","🛵","DELIVERY"]].map(([id,ico,lbl]) => (
+              <button key={id} onClick={()=>setCust(p=>({...p,delivery:id}))} style={{padding:"14px 8px",background:cust.delivery===id?C.gold:C.sf,color:cust.delivery===id?"#0C0C10":C.light,border:"1.5px solid "+(cust.delivery===id?C.gold:C.border),borderRadius:14,fontFamily:"'Nunito'",fontWeight:900,fontSize:13,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+                <span style={{fontSize:24}}>{ico}</span>{lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* dirección */}
+        {cust.delivery==="delivery" && (
+          <div style={{animation:"fadeUp .2s ease"}}>
+            <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:8}}>📍 Dirección <span style={{color:C.red}}>*</span></label>
+            <textarea value={cust.address} onChange={e=>setCust(p=>({...p,address:e.target.value}))} placeholder="Calle, número, referencia..." rows={3} style={{width:"100%",background:C.sf,border:"1.5px solid "+(errs.address?C.red:C.border),borderRadius:12,padding:"12px 14px",color:C.white,fontFamily:"'Nunito'",fontSize:14,resize:"none"}} />
+            {errs.address && <p style={{color:C.red,fontSize:12,marginTop:4}}>La dirección es obligatoria para delivery</p>}
+          </div>
+        )}
+
+        {/* pago */}
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:8}}>💳 Método de pago <span style={{color:C.red}}>*</span></label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {PAYMENTS.map(p => (
+              <button key={p.id} onClick={()=>setCust(c=>({...c,payment:p.id}))} style={{padding:"9px 14px",background:cust.payment===p.id?C.gold:C.sf,color:cust.payment===p.id?"#0C0C10":C.light,border:"1.5px solid "+(cust.payment===p.id?C.gold:C.border),borderRadius:50,fontFamily:"'Nunito'",fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                {p.icon} {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* notas */}
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:8}}>📝 Notas especiales</label>
+          <textarea value={cust.notes} onChange={e=>setCust(p=>({...p,notes:e.target.value}))} placeholder="Sin cebolla, extra salsa, bien cocido..." rows={2} style={{width:"100%",background:C.sf,border:"1px solid "+C.border,borderRadius:12,padding:"11px 14px",color:C.white,fontFamily:"'Nunito'",fontSize:13,resize:"none"}} />
+        </div>
+
+        {/* club + memoria del cliente */}
+        <div style={{background:"linear-gradient(135deg,rgba(245,166,35,.12),rgba(245,166,35,.04))",border:"1.5px solid rgba(245,166,35,.35)",borderRadius:16,padding:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <span style={{fontSize:26}}>🌵</span>
+            <div>
+              <p style={{fontWeight:900,fontSize:14,color:C.gold}}>CLUB CACTUS</p>
+              <p style={{color:C.muted,fontSize:12}}>Gana <strong style={{color:C.gold}}>{Math.floor(total)} puntos</strong> · Tu teléfono guarda tu historial</p>
+            </div>
+          </div>
+          <input value={cust.phone} onChange={e=>onPhoneChange(e.target.value)} placeholder="Tu número de teléfono (opcional)" style={{width:"100%",background:C.bg,border:"1px solid rgba(245,166,35,.3)",borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13}} />
+          {foundCust ? (
+            <div style={{marginTop:12,background:"rgba(46,189,107,.1)",border:"1px solid rgba(46,189,107,.3)",borderRadius:12,padding:"10px 14px"}}>
+              <p style={{fontWeight:800,fontSize:13,color:C.green,marginBottom:4}}>👋 Bienvenido de vuelta, {foundCust.name}!</p>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:C.light}}>📦 {foundCust.orderCount} pedido{foundCust.orderCount!==1?"s":""}</span>
+                <span style={{fontSize:12,color:C.light}}>💰 {fmt(foundCust.totalSpent)} en total</span>
+                <span style={{fontSize:12,color:C.gold}}>🌵 {getCl(cust.phone)?.points||0} pts Club</span>
+              </div>
+              <p style={{fontSize:11,color:C.muted,marginTop:6}}>Tus datos fueron cargados automáticamente</p>
+            </div>
+          ) : cust.phone ? (
+            <p style={{color:C.gold,fontSize:12,marginTop:8}}>
+              {(() => { const d=getCl(cust.phone); const fut=(d?d.points:0)+Math.floor(total); const nr=nxtRw(fut);
+                return (d?"Saldo: "+d.points+" -> "+fut+" pts":"Te registras con "+Math.floor(total)+" pts!")+" "+(nr?"| Faltan "+(nr.pts-fut)+" para "+nr.label:"| Premio disponible!"); })()
+              }
+            </p>
+          ) : null}
+        </div>
+
+        <button onClick={confirmOrder} disabled={status==="sending"} style={{...goldBtn({width:"100%",padding:16,fontSize:17,borderRadius:16,boxShadow:"0 6px 20px rgba(245,166,35,.4)",background:status==="sending"?C.muted:C.gold})}}>
+          {status==="sending" ? "⏳ Enviando..." : "🌵 Enviar Pedido · "+fmt(total)}
+        </button>
+      </div>
+    </div>
+  );
+
+  /* ── MAIN MENU ── */
+  const hasCart = count > 0;
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,color:C.white,fontFamily:"'Nunito',sans-serif",position:"relative",paddingBottom:hasCart?"90px":"24px"}}>
+      <style>{CSS}</style>
+
+      {/* HEADER */}
+      <div style={{background:"linear-gradient(to bottom,#111116,"+C.bg+")",borderBottom:"1.5px solid "+C.border,padding:"18px 16px 14px",position:"sticky",top:0,zIndex:10}}>
+        <div style={{maxWidth:600,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div onClick={tapLogo} style={{userSelect:"none"}}>
+            <h1 style={{fontFamily:"'Bebas Neue'",fontSize:34,letterSpacing:3,color:C.gold,lineHeight:1}}>🌵 CACTUS BURGER</h1>
+            <p style={{color:C.muted,fontSize:12,marginTop:3}}>Food Truck · Charallave, Edo. Miranda</p>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>setClubOpen(true)} style={{background:"rgba(245,166,35,.15)",border:"1px solid rgba(245,166,35,.35)",borderRadius:50,padding:"8px 14px",color:C.gold,fontFamily:"'Nunito'",fontWeight:800,fontSize:13,cursor:"pointer"}}>🌵 Club</button>
+            {hasCart && <button onClick={()=>setCopen(true)} style={{...goldBtn({borderRadius:50,padding:"9px 14px",fontSize:14,boxShadow:"0 4px 16px rgba(245,166,35,.4)"})}}>🛒 {count} · {fmt(total)}</button>}
+          </div>
+        </div>
+      </div>
+
+      {/* CATEGORY TABS */}
+      <div style={{background:C.sf,borderBottom:"1px solid "+C.border,position:"sticky",top:67,zIndex:9,overflowX:"auto"}}>
+        <div style={{maxWidth:600,margin:"0 auto",display:"flex",padding:"0 8px"}}>
+          {CATS.map((c,i) => (
+            <button key={c.id} className="tb" onClick={()=>setCat(i)} style={{background:"transparent",border:"none",borderBottom:cat===i?"2.5px solid "+C.gold:"2.5px solid transparent",color:cat===i?C.gold:C.light,padding:"11px 11px",fontFamily:"'Nunito'",fontWeight:cat===i?800:600,fontSize:12,whiteSpace:"nowrap",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+              {c.emoji} {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ACTIVE PROMO BANNER */}
+      {activePromos.length > 0 && (
+        <div style={{maxWidth:600,margin:"0 auto",padding:"10px 14px 0"}}>
+          {activePromos.map(p => (
+            <div key={p.id} style={{background:"linear-gradient(135deg,rgba(231,76,60,.18),rgba(231,76,60,.06))",border:"1px solid rgba(231,76,60,.4)",borderRadius:12,padding:"10px 14px",display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <span style={{fontSize:20}}>🏷️</span>
+              <div>
+                <p style={{fontWeight:800,fontSize:13,color:"#FF6B6B"}}>{p.name}</p>
+                <p style={{fontSize:12,color:C.muted}}>{p.type==="pct"?p.val+"% de descuento":"$"+p.val+" de descuento"} · {p.appliesTo==="all"?"En todo el menú":p.appliesTo==="cat"?("En "+p.catId):"Ítem específico"}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ITEMS */}
+      <div style={{maxWidth:600,margin:"0 auto",padding:"12px 14px"}}>
+        {cat===0 && (
+          <div style={{background:"linear-gradient(135deg,rgba(245,166,35,.12),rgba(245,166,35,.04))",border:"1px solid rgba(245,166,35,.3)",borderRadius:14,padding:"10px 14px",display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <span style={{fontSize:22}}>🎁</span>
+            <div><p style={{fontWeight:800,fontSize:13,color:C.gold}}>Combos disponibles!</p><p style={{fontSize:12,color:C.muted}}>Ahorra hasta $2 comprando en combo</p></div>
+          </div>
+        )}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {curCat.items.map((item,i) => {
+            const promo = getItemPromo(item);
+            const ep    = effPr(item.price, promo);
+            return (
+            <div key={item.id} className="ic" style={{background:C.sf,borderRadius:18,border:"1px solid "+C.border,padding:15,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,animation:"fadeUp .25s ease "+(i*.05)+"s both"}}>
+              <div style={{display:"flex",alignItems:"center",gap:14,flex:1,minWidth:0}}>
+                <span style={{fontSize:30,flexShrink:0}}>{item.emoji}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:2}}>
+                    <p style={{fontWeight:800,fontSize:14}}>{item.name}</p>
+                    {item.isCombo && <span style={{background:C.gold,color:"#0C0C10",fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:50}}>COMBO</span>}
+                    {promo && <span style={{background:"rgba(231,76,60,.2)",color:"#FF6B6B",fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:50}}>🏷️ {promo.type==="pct"?promo.val+"% OFF":"$"+promo.val+" OFF"}</span>}
+                  </div>
+                  <p style={{color:C.muted,fontSize:12,marginBottom:6}}>{item.desc}</p>
+                  <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+                    {promo && <span style={{fontSize:14,color:C.muted,textDecoration:"line-through"}}>{fmt(item.price)}</span>}
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:22,color:promo?"#FF6B6B":C.gold,letterSpacing:1}}>{fmt(ep)}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                {cart[item.id] && <>
+                  <button onClick={()=>remI(item.id)} style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid "+C.border,background:"transparent",color:C.light,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                  <span style={{fontWeight:900,fontSize:16,minWidth:20,textAlign:"center"}}>{cart[item.id].qty}</span>
+                </>}
+                <button className={"ab"+(popped===item.id?" pop":"")} onClick={()=>addI(item)} style={{width:36,height:36,borderRadius:"50%",border:"none",background:promo?"#FF6B6B":C.gold,color:"#0C0C10",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,boxShadow:"0 4px 14px rgba(245,166,35,.35)"}}>+</button>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* FLOATING CART BAR */}
+      {hasCart && !copen && (
+        <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:30,padding:"10px 14px 14px",background:"linear-gradient(to top,"+C.bg+" 60%,transparent)"}}>
+          <div style={{maxWidth:600,margin:"0 auto"}}>
+            <button onClick={()=>setCopen(true)} style={{...goldBtn({width:"100%",padding:"14px 20px",fontSize:16,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 24px rgba(245,166,35,.45)"})}}>
+              <span style={{background:"rgba(0,0,0,.2)",borderRadius:8,padding:"2px 10px",fontSize:14}}>{count} ítem{count!==1?"s":""}</span>
+              <span>🛒 Ver Pedido</span>
+              <span>{fmt(total)}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CART DRAWER */}
+      {copen && (
+        <div style={{position:"fixed",inset:0,zIndex:50,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setCopen(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.78)",backdropFilter:"blur(3px)"}} />
+          <div style={{position:"relative",background:C.sf,borderRadius:"24px 24px 0 0",border:"1px solid "+C.border,borderBottom:"none",padding:"20px 18px 28px",maxHeight:"75vh",overflowY:"auto",maxWidth:600,width:"100%",margin:"0 auto",animation:"slideUp .28s ease"}}>
+            <div style={{width:36,height:4,background:C.border,borderRadius:4,margin:"-8px auto 18px"}} />
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <h2 style={{fontFamily:"'Bebas Neue'",fontSize:26,letterSpacing:2,color:C.gold}}>Tu Pedido</h2>
+              <button onClick={()=>{setCart({});setCopen(false);}} style={{background:"transparent",border:"1px solid "+C.border,borderRadius:10,color:C.muted,fontSize:12,padding:"6px 14px",cursor:"pointer",fontFamily:"'Nunito'",fontWeight:700}}>Limpiar</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {items.map(item => (
+                <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:C.bg,borderRadius:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:20}}>{item.emoji}</span>
+                    <div><p style={{fontWeight:800,fontSize:13}}>{item.name}</p><p style={{color:C.muted,fontSize:11}}>{fmt(item.price)} c/u</p></div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <button onClick={()=>remI(item.id)} style={{width:26,height:26,borderRadius:"50%",border:"1px solid "+C.border,background:"transparent",color:C.light,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                    <span style={{fontWeight:900,minWidth:18,textAlign:"center",fontSize:15}}>{item.qty}</span>
+                    <button onClick={()=>addI(item)} style={{width:26,height:26,borderRadius:"50%",border:"none",background:C.gold,color:"#0C0C10",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>+</button>
+                    <span style={{fontFamily:"'Bebas Neue'",fontSize:17,color:C.gold,minWidth:50,textAlign:"right"}}>{fmt(item.price*item.qty)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{borderTop:"1px solid "+C.border,paddingTop:14,marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{color:C.light,fontSize:15,fontWeight:700}}>Total</span>
+              <span style={{fontFamily:"'Bebas Neue'",fontSize:32,color:C.gold,letterSpacing:1}}>{fmt(total)}</span>
+            </div>
+            <button onClick={()=>{setCopen(false);setStatus("checkout");}} style={{...goldBtn({width:"100%",padding:15,fontSize:17,borderRadius:16,boxShadow:"0 6px 20px rgba(245,166,35,.45)"})}}>
+              Continuar con el pedido &rarr;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CLUB CACTUS SCREEN */}
+      {clubOpen && (
+        <div style={{position:"fixed",inset:0,zIndex:60,background:C.bg,overflowY:"auto",animation:"fadeUp .3s ease",fontFamily:"'Nunito',sans-serif",color:C.white}}>
+          <div style={{maxWidth:600,margin:"0 auto",paddingBottom:40}}>
+            <div style={{background:"linear-gradient(135deg,rgba(245,166,35,.2),rgba(245,166,35,.05))",borderBottom:"1px solid rgba(245,166,35,.3)",padding:"24px 16px 20px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div><h1 style={{fontFamily:"'Bebas Neue'",fontSize:36,color:C.gold,letterSpacing:3,lineHeight:1}}>🌵 CLUB CACTUS</h1><p style={{color:C.light,fontSize:13,marginTop:4}}>Tu programa de fidelización · 1$ = 1 punto</p></div>
+                <button onClick={()=>{setClubOpen(false);setClubRes(null);setClubQ("");setClubNF(false);}} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:"50%",width:36,height:36,color:C.light,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:18}}>
+                <input value={clubQ} onChange={e=>setClubQ(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") lookupClub();}} placeholder="Tu número de teléfono" style={{flex:1,background:C.bg,border:"1px solid rgba(245,166,35,.4)",borderRadius:12,padding:"11px 14px",color:C.white,fontFamily:"'Nunito'",fontSize:14}} />
+                <button onClick={lookupClub} style={{...goldBtn({padding:"11px 18px",fontSize:14,borderRadius:12})}}>Buscar</button>
+              </div>
+            </div>
+            <div style={{padding:"16px 14px"}}>
+              {!clubRes && !clubNF && (
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <p style={{color:C.muted,fontSize:13,textAlign:"center",marginBottom:6}}>Ingresa tu teléfono para ver tus puntos</p>
+                  {REWARDS.map(r => (
+                    <div key={r.pts} style={card({display:"flex",alignItems:"center",gap:14})}>
+                      <span style={{fontSize:28}}>{r.emoji}</span>
+                      <div style={{flex:1}}><p style={{fontWeight:800,fontSize:14}}>{r.label}</p><p style={{color:C.muted,fontSize:12}}>Al acumular {r.pts} puntos</p></div>
+                      <div style={{background:r.color+"22",border:"1px solid "+r.color+"55",borderRadius:50,padding:"6px 12px"}}><span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:r.color}}>{r.pts} pts</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {clubNF && <div style={{textAlign:"center",padding:"30px 0"}}><p style={{fontSize:40,marginBottom:12}}>🤔</p><p style={{fontWeight:800,fontSize:15,marginBottom:6}}>Número no encontrado</p><p style={{color:C.muted,fontSize:13}}>Ingresa tu teléfono al confirmar tu pedido para unirte gratis.</p></div>}
+              {clubRes && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  <div style={{background:"linear-gradient(135deg,#1A1410,#211800)",border:"1.5px solid rgba(245,166,35,.4)",borderRadius:20,padding:"20px 18px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
+                      <div><p style={{fontFamily:"'Bebas Neue'",fontSize:14,color:C.muted,letterSpacing:2}}>SOCIO CLUB CACTUS</p><p style={{fontWeight:900,fontSize:18,marginTop:2}}>{clubRes.name||"Cliente"}</p><p style={{color:C.muted,fontSize:12}}>{clubRes.phone}</p></div>
+                      <span style={{fontSize:36}}>🌵</span>
+                    </div>
+                    <p style={{fontFamily:"'Bebas Neue'",fontSize:52,color:C.gold,letterSpacing:2,lineHeight:1}}>{clubRes.points}</p>
+                    <p style={{color:C.muted,fontSize:13}}>puntos acumulados</p>
+                    {nxtRw(clubRes.points) && (
+                      <div style={{marginTop:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.muted,marginBottom:4}}>
+                          <span>Próxima: {nxtRw(clubRes.points).label}</span>
+                          <span>{clubRes.points}/{nxtRw(clubRes.points).pts}</span>
+                        </div>
+                        <div style={{height:6,background:"rgba(255,255,255,.1)",borderRadius:3}}><div style={{height:"100%",background:C.gold,borderRadius:3,width:Math.min(100,(clubRes.points/nxtRw(clubRes.points).pts)*100)+"%"}} /></div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={card()}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:12}}>🏆 Recompensas</h3>
+                    {REWARDS.map(r => {
+                      const u = clubRes.points >= r.pts;
+                      return (
+                        <div key={r.pts} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid "+C.border}}>
+                          <span style={{fontSize:24,opacity:u?1:.4}}>{r.emoji}</span>
+                          <div style={{flex:1}}><p style={{fontSize:13,fontWeight:800,color:u?C.white:C.muted}}>{r.label}</p><p style={{fontSize:11,color:C.muted}}>{r.pts} pts</p></div>
+                          {u ? <span style={{background:C.green+"22",border:"1px solid "+C.green,borderRadius:50,padding:"4px 12px",fontSize:12,fontWeight:800,color:C.green}}>Disponible!</span> : <span style={{color:C.muted,fontSize:12}}>-{r.pts-clubRes.points} pts</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIN MODAL */}
+      {pinOpen && (
+        <div style={{position:"fixed",inset:0,zIndex:70,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.88)",backdropFilter:"blur(5px)"}}>
+          <div style={{background:C.sf,borderRadius:24,padding:"28px 24px",width:300,border:"1px solid "+C.border,textAlign:"center",animation:"fadeUp .3s ease"}}>
+            <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.gold,letterSpacing:2,marginBottom:4}}>🔒 PANEL DUEÑO</p>
+            <p style={{color:C.muted,fontSize:12,marginBottom:22}}>Ingresa tu PIN de acceso</p>
+            <div className={pinErr?"sk":""} style={{display:"flex",justifyContent:"center",gap:12,marginBottom:24}}>
+              {[0,1,2,3].map(i => <div key={i} style={{width:13,height:13,borderRadius:"50%",background:pinVal.length>i?C.gold:C.border,transition:"background .15s"}} />)}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
+              {["1","2","3","4","5","6","7","8","9","","0","X"].map((k,i) => (
+                <button key={i} className="pk" onClick={()=>{if(k) tapKey(k);}} style={{height:52,background:k?C.hi:"transparent",border:k?"1px solid "+C.border:"none",borderRadius:14,color:C.white,fontSize:k==="X"?18:22,fontFamily:"'Nunito'",fontWeight:700,cursor:k?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {k==="X" ? "⌫" : k}
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>{setPinOpen(false);setPinVal("");}} style={{background:"transparent",border:"none",color:C.muted,fontSize:13,cursor:"pointer",fontFamily:"'Nunito'"}}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          OWNER PANEL
+         ══════════════════════════════════════════════════ */}
+      {owOpen && (
+        <div style={{position:"fixed",inset:0,zIndex:65,background:C.bg,overflowY:"auto",animation:"fadeUp .3s ease",fontFamily:"'Nunito',sans-serif",color:C.white}}>
+          <div style={{maxWidth:640,margin:"0 auto",paddingBottom:40}}>
+
+            {/* Panel Header */}
+            <div style={{background:"linear-gradient(135deg,#111116,"+C.bg+")",borderBottom:"1.5px solid "+C.border,padding:"18px 16px 0",position:"sticky",top:0,zIndex:5}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div>
+                  <h2 style={{fontFamily:"'Bebas Neue'",fontSize:24,color:C.gold,letterSpacing:2,lineHeight:1}}>🌵 PANEL DE ADMINISTRACIÓN</h2>
+                  <p style={{color:C.muted,fontSize:12,marginTop:2}}>{new Date().toLocaleDateString("es-VE",{weekday:"long",day:"numeric",month:"long"})}</p>
+                </div>
+                <button onClick={()=>setOwOpen(false)} style={{background:C.hi,border:"1px solid "+C.border,borderRadius:"50%",width:38,height:38,color:C.light,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+              </div>
+              <div style={{display:"flex",overflowX:"auto"}}>
+                {[["dash","📊","Panel"],["stats","📈","Stats"],["bal","💰","Balance"],["exp","💸","Egresos"],["promo","🎉","Promos"],["hist","📦","Historial"],["club","🌵","Club"],["cfg","⚙️","Config"]].map(([id,ico,lbl]) => (
+                  <button key={id} onClick={()=>setOwTab(id)} style={{background:"transparent",border:"none",borderBottom:owTab===id?"2.5px solid "+C.gold:"2.5px solid transparent",color:owTab===id?C.gold:C.muted,padding:"10px 14px",fontFamily:"'Nunito'",fontWeight:owTab===id?800:600,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",flexShrink:0}}>
+                    {ico} {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{padding:"16px 14px"}}>
+
+              {/* ── DASHBOARD ── */}
+              {owTab==="dash" && (
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    {[
+                      {l:"Pedidos Hoy",  v:todayO.length,       e:"📋", c:C.gold,   s:orders.length+" total"},
+                      {l:"Ingresos Hoy", v:fmt(todayR),         e:"💵", c:C.green,  s:fmt(totalR)+" total"},
+                      {l:"Ticket Prom.", v:fmt(avgTk),          e:"🎯", c:C.blue,   s:orders.length+" pedidos"},
+                      {l:"Socios Club",  v:mbrs.length,         e:"🌵", c:C.purple, s:mbrs.reduce((s,m)=>s+m.points,0)+" pts"},
+                    ].map(s => (
+                      <div key={s.l} style={card({})}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:22}}>{s.e}</span><span style={{fontSize:10,color:C.muted}}>{s.s}</span></div>
+                        <p style={{fontFamily:"'Bebas Neue'",fontSize:26,color:s.c,letterSpacing:.5,lineHeight:1}}>{s.v}</p>
+                        <p style={{color:C.muted,fontSize:11,marginTop:4}}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={card({padding:"16px 12px"})}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingRight:4}}>
+                      <h3 style={{fontWeight:800,fontSize:14,color:C.light}}>💰 Ingresos últimos 7 días</h3>
+                      <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:C.gold}}>{fmt(rev7.reduce((s,d)=>s+d.revenue,0))}</span>
+                    </div>
+                    {orders.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin datos aún 🌵</p> : (
+                      <ResponsiveContainer width="100%" height={170}>
+                        <BarChart data={rev7} barSize={24} margin={{top:4,right:4,bottom:0,left:-20}}>
+                          <XAxis dataKey="day" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} />
+                          <Tooltip content={<CTip money={true} />} />
+                          <Bar dataKey="revenue" name="Ingresos" fill={C.gold} radius={[6,6,0,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                  <div style={card({padding:"16px 12px"})}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingRight:4}}>
+                      <h3 style={{fontWeight:800,fontSize:14,color:C.light}}>📋 Pedidos por día</h3>
+                      <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:C.green}}>{rev7.reduce((s,d)=>s+d.pedidos,0)}</span>
+                    </div>
+                    {orders.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin datos aún</p> : (
+                      <ResponsiveContainer width="100%" height={140}>
+                        <LineChart data={rev7} margin={{top:4,right:4,bottom:0,left:-20}}>
+                          <XAxis dataKey="day" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip content={<CTip money={false} />} />
+                          <Line type="monotone" dataKey="pedidos" name="Pedidos" stroke={C.green} strokeWidth={2.5} dot={{fill:C.green,r:4}} activeDot={{r:6}} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                  <button onClick={()=>{loadOrders();loadMbrs();}} style={{background:"transparent",border:"1px solid "+C.border,borderRadius:12,color:C.muted,fontFamily:"'Nunito'",fontWeight:700,fontSize:13,padding:10,cursor:"pointer"}}>↻ Actualizar datos</button>
+                </div>
+              )}
+
+              {/* ── STATS ── */}
+              {owTab==="stats" && (
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                    {[{l:"Ticket prom.",v:fmt(avgTk),c:C.gold},{l:"Total pedidos",v:orders.length,c:C.green},{l:"Deliveries",v:delN,c:C.blue}].map(s => (
+                      <div key={s.l} style={card({textAlign:"center",padding:12})}><p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:s.c}}>{s.v}</p><p style={{color:C.muted,fontSize:10,marginTop:3}}>{s.l}</p></div>
+                    ))}
+                  </div>
+                  <div style={card({padding:"16px 12px"})}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>🔥 Productos más vendidos</h3>
+                    {topI.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin datos aún</p> : (
+                      <ResponsiveContainer width="100%" height={topI.length*44+20}>
+                        <BarChart data={topI} layout="vertical" margin={{top:0,right:30,bottom:0,left:0}}>
+                          <XAxis type="number" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" tick={{fill:C.light,fontSize:11}} width={120} axisLine={false} tickLine={false} />
+                          <Tooltip content={<CTip money={false} />} />
+                          <Bar dataKey="qty" name="Unidades" fill={C.gold} radius={[0,6,6,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                  <div style={card({padding:"16px 12px"})}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>💳 Métodos de pago</h3>
+                    {payC.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin datos aún</p> : (
+                      <>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <PieChart>
+                            <Pie data={payC} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+                              {payC.map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip content={<CTip money={false} />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>
+                          {payC.map((p,i) => (
+                            <div key={p.name} style={{display:"flex",alignItems:"center",gap:6}}>
+                              <div style={{width:10,height:10,borderRadius:"50%",background:PIE_COLORS[i%PIE_COLORS.length]}} />
+                              <span style={{fontSize:12,color:C.light}}>{p.icon} {p.name}: <strong style={{color:PIE_COLORS[i%PIE_COLORS.length]}}>{p.value}</strong></span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div style={card()}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>📦 Retiro vs Delivery</h3>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      {[{l:"Retiro en Local",v:retN,c:C.blue,i:"🏪"},{l:"Delivery",v:delN,c:C.gold,i:"🛵"}].map(s => (
+                        <div key={s.l} style={{background:C.hi,borderRadius:14,padding:"14px 10px",textAlign:"center",border:"1px solid "+s.c+"44"}}>
+                          <p style={{fontSize:22,marginBottom:6}}>{s.i}</p>
+                          <p style={{fontFamily:"'Bebas Neue'",fontSize:26,color:s.c}}>{s.v}</p>
+                          <p style={{color:C.muted,fontSize:11}}>{s.l}</p>
+                          <p style={{color:s.c,fontSize:12,fontWeight:700,marginTop:4}}>{Math.round(s.v/dTot*100)}%</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{height:8,background:C.hi,borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",background:C.blue,borderRadius:4,width:Math.round(retN/dTot*100)+"%"}} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── BALANCES ── */}
+              {owTab==="bal" && (
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    {[
+                      {l:"Hoy",           v:todayR, s:todayO.length+" pedidos",         c:C.gold,   i:"☀️"},
+                      {l:"Esta semana",   v:weekR,  s:"desde el lunes",                 c:C.green,  i:"📅"},
+                      {l:"Este mes",      v:monthR, s:new Date().toLocaleDateString("es-VE",{month:"long"}), c:C.blue, i:"🗓️"},
+                      {l:"Total",         v:totalR, s:orders.length+" pedidos totales", c:C.purple, i:"🏆"},
+                    ].map(s => (
+                      <div key={s.l} style={card({})}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{fontSize:20}}>{s.i}</span><span style={{fontSize:10,color:C.muted}}>{s.s}</span></div>
+                        <p style={{fontFamily:"'Bebas Neue'",fontSize:26,color:s.c,letterSpacing:.5}}>{fmt(s.v)}</p>
+                        <p style={{color:C.muted,fontSize:11,marginTop:4}}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={card({padding:"16px 12px"})}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>📈 Tendencia — últimas 2 semanas</h3>
+                    {orders.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"24px 0"}}>Sin datos aún 🌵</p> : (
+                      <ResponsiveContainer width="100%" height={170}>
+                        <LineChart data={rev14} margin={{top:4,right:4,bottom:0,left:-20}}>
+                          <XAxis dataKey="day" tick={{fill:C.muted,fontSize:9}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} />
+                          <Tooltip content={<CTip money={true} />} />
+                          <Line type="monotone" dataKey="revenue" name="Ingresos" stroke={C.gold} strokeWidth={2.5} dot={false} activeDot={{r:5,fill:C.gold}} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                  <div style={card()}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>📊 Métricas</h3>
+                    {[
+                      ["Ticket promedio",    fmt(avgTk)],
+                      ["Mejor día (7 días)", fmt(Math.max(0,...rev7.map(d=>d.revenue)))],
+                      ["Pedidos esta semana",String(orders.filter(o=>o.date>=wkSt()).length)],
+                      ["Ingreso por pedido", orders.length ? fmt(totalR/orders.length) : "$0.00"],
+                    ].map(([l,v],i) => (
+                      <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<3?"1px solid "+C.border:"none"}}>
+                        <span style={{fontSize:13,color:C.light}}>{l}</span>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:18,color:C.gold,letterSpacing:.5}}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* P&L */}
+                  <div style={{...card(),border:"1px solid rgba(46,189,107,.3)"}}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.green,marginBottom:4}}>📊 P&amp;L — Esta semana</h3>
+                    <p style={{color:C.muted,fontSize:11,marginBottom:14}}>Rentabilidad basada en egresos registrados</p>
+                    {[
+                      {l:"(+) Ingresos",    v:weekR,              c:C.green},
+                      {l:"(−) Costos",      v:-wkCostTot,         c:C.red},
+                      {l:"= Util. Bruta",   v:weekR-wkCostTot,    c:weekR-wkCostTot>=0?C.gold:C.red, bold:true},
+                      {l:"(−) Gastos",      v:-wkGastTot,         c:C.red},
+                      {l:"= Util. Neta",    v:wkNeta,             c:wkNeta>=0?C.green:C.red, bold:true},
+                    ].map(({l,v,c,bold},i) => (
+                      <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<4?"1px solid "+C.border:"none",borderTop:bold?"1px solid "+C.border:"none"}}>
+                        <span style={{fontSize:13,color:bold?C.white:C.light,fontWeight:bold?800:400}}>{l}</span>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:bold?22:18,color:c,letterSpacing:.5}}>{v>=0?fmt(v):"−"+fmt(Math.abs(v))}</span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:13,color:C.light}}>Margen neto</span>
+                      <span style={{fontFamily:"'Bebas Neue'",fontSize:26,color:wkMargen>=0?C.green:C.red}}>{wkMargen}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── EGRESOS ── */}
+              {owTab==="exp" && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+                  {/* Form */}
+                  <div style={{...card({padding:18})}}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.gold,marginBottom:14}}>➕ Registrar Egreso</h3>
+
+                    {/* Type */}
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Tipo de egreso</p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                      {[["costo","💰","Costo","Ingredientes y producción"],["gasto","📋","Gasto","Operacional y servicios"]].map(([id,ico,lbl,sub]) => (
+                        <button key={id} onClick={()=>setExpForm(f=>({...f,type:id}))} style={{padding:"12px 8px",background:expForm.type===id?"rgba(245,166,35,.15)":C.hi,border:"1.5px solid "+(expForm.type===id?C.gold:C.border),borderRadius:12,cursor:"pointer",textAlign:"left"}}>
+                          <p style={{fontSize:18,marginBottom:4}}>{ico}</p>
+                          <p style={{fontWeight:800,fontSize:13,color:expForm.type===id?C.gold:C.white}}>{lbl}</p>
+                          <p style={{fontSize:10,color:C.muted}}>{sub}</p>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Category */}
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Categoría</p>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+                      {EXP_CATS.map(c => (
+                        <button key={c.id} onClick={()=>setExpForm(f=>({...f,category:c.id}))} style={{padding:"7px 12px",background:expForm.category===c.id?C.gold:C.hi,color:expForm.category===c.id?"#0C0C10":C.light,border:"1px solid "+(expForm.category===c.id?C.gold:C.border),borderRadius:50,fontFamily:"'Nunito'",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+                          {c.icon} {c.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Description */}
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Descripción</p>
+                    <input value={expForm.desc} onChange={e=>setExpForm(f=>({...f,desc:e.target.value}))} placeholder="Ej: Carne de res 3kg, Gas industrial..." style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13,marginBottom:14}} />
+
+                    {/* Amount + Date */}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+                      <div>
+                        <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Monto ($)</p>
+                        <input value={expForm.amount} onChange={e=>setExpForm(f=>({...f,amount:e.target.value.replace(/[^0-9.]/g,"")}))} placeholder="0.00" style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:14}} />
+                      </div>
+                      <div>
+                        <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Fecha</p>
+                        <input type="date" value={expForm.date} onChange={e=>setExpForm(f=>({...f,date:e.target.value}))} style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13,colorScheme:"dark"}} />
+                      </div>
+                    </div>
+
+                    <button onClick={addExpense} style={{width:"100%",padding:13,background:expAdded?C.green:C.gold,color:"#0C0C10",border:"none",borderRadius:12,fontFamily:"'Nunito'",fontWeight:900,fontSize:15,cursor:"pointer",transition:"background .3s"}}>
+                      {expAdded ? "✅ Registrado!" : "Agregar Egreso"}
+                    </button>
+                  </div>
+
+                  {/* Filter */}
+                  <div style={{display:"flex",gap:8}}>
+                    {[["week","Esta semana"],["month","Este mes"],["all","Todo"]].map(([id,lbl]) => (
+                      <button key={id} onClick={()=>setExpFilter(id)} style={{flex:1,padding:"9px 0",background:expFilter===id?C.gold:C.hi,color:expFilter===id?"#0C0C10":C.muted,border:"1px solid "+(expFilter===id?C.gold:C.border),borderRadius:10,fontFamily:"'Nunito'",fontWeight:800,fontSize:12,cursor:"pointer"}}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Summary cards */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                    {[
+                      {l:"Costos",  v:fmt(costTot), e:"💰", c:"#F59E0B"},
+                      {l:"Gastos",  v:fmt(gastTot), e:"📋", c:C.blue},
+                      {l:"Total",   v:fmt(expTot),  e:"📊", c:C.red},
+                    ].map(s => (
+                      <div key={s.l} style={card({textAlign:"center",padding:"12px 8px"})}>
+                        <p style={{fontSize:18,marginBottom:4}}>{s.e}</p>
+                        <p style={{fontFamily:"'Bebas Neue'",fontSize:18,color:s.c}}>{s.v}</p>
+                        <p style={{color:C.muted,fontSize:10,marginTop:2}}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Category breakdown chart */}
+                  {expByCat.length > 0 && (
+                    <div style={card({padding:"16px 12px"})}>
+                      <h3 style={{fontWeight:800,fontSize:14,color:C.light,marginBottom:14}}>📊 Egresos por categoría</h3>
+                      <ResponsiveContainer width="100%" height={expByCat.length*44+20}>
+                        <BarChart data={expByCat} layout="vertical" margin={{top:0,right:40,bottom:0,left:0}}>
+                          <XAxis type="number" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false} />
+                          <YAxis type="category" dataKey="name" tick={{fill:C.light,fontSize:11}} width={100} axisLine={false} tickLine={false} />
+                          <Tooltip content={<CTip money={true} />} />
+                          <Bar dataKey="value" name="Monto" fill={C.red} radius={[0,6,6,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Expense list */}
+                  {filtExp.length===0
+                    ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin egresos en este período 🌵</p>
+                    : filtExp.map(e => {
+                        const cat = EXP_CATS.find(c=>c.id===e.category);
+                        return (
+                          <div key={e.id} style={card({padding:"12px 14px"})}>
+                            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                                <div style={{width:36,height:36,borderRadius:10,background:e.type==="costo"?"rgba(245,158,11,.15)":"rgba(59,130,246,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+                                  {cat?.icon||"📋"}
+                                </div>
+                                <div style={{minWidth:0}}>
+                                  <p style={{fontWeight:800,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.desc}</p>
+                                  <div style={{display:"flex",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                                    <span style={{background:e.type==="costo"?"rgba(245,158,11,.2)":"rgba(59,130,246,.2)",color:e.type==="costo"?"#F59E0B":C.blue,fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:50}}>{e.type==="costo"?"Costo":"Gasto"}</span>
+                                    <span style={{color:C.muted,fontSize:11}}>{cat?.label} · {e.date}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                                <span style={{fontFamily:"'Bebas Neue'",fontSize:20,color:C.red}}>-{fmt(e.amount)}</span>
+                                <button onClick={()=>delExpense(e.id)} style={{background:"rgba(231,76,60,.15)",border:"1px solid rgba(231,76,60,.3)",borderRadius:8,color:C.red,fontSize:13,padding:"5px 9px",cursor:"pointer"}}>🗑️</button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                  }
+
+                  {expenses.length > 0 && (
+                    <button onClick={()=>{lsSet("cb-exp",[]); setExpenses([]);}} style={{background:"transparent",border:"1px solid "+C.red,borderRadius:12,color:C.red,fontFamily:"'Nunito'",fontWeight:700,fontSize:13,padding:10,cursor:"pointer"}}>
+                      🗑️ Limpiar todos los egresos
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* ── PROMOCIONES ── */}
+              {owTab==="promo" && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+                  {/* Form */}
+                  <div style={{...card({padding:18})}}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:"#FF6B6B",marginBottom:14}}>🎉 Nueva Promoción</h3>
+
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Nombre de la promo</p>
+                    <input value={promoForm.name} onChange={e=>setPromoForm(f=>({...f,name:e.target.value}))} placeholder='Ej: Martes de Hamburguesas 20% OFF' style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13,marginBottom:14}} />
+
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Tipo de descuento</p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                      {[["pct","% Porcentaje","Ej: 20% off"],["fix","$ Monto Fijo","Ej: $1 off"]].map(([id,lbl,sub]) => (
+                        <button key={id} onClick={()=>setPromoForm(f=>({...f,type:id}))} style={{padding:"10px 8px",background:promoForm.type===id?"rgba(255,107,107,.15)":C.hi,border:"1.5px solid "+(promoForm.type===id?"#FF6B6B":C.border),borderRadius:12,cursor:"pointer",textAlign:"left"}}>
+                          <p style={{fontWeight:800,fontSize:13,color:promoForm.type===id?"#FF6B6B":C.white}}>{lbl}</p>
+                          <p style={{fontSize:11,color:C.muted}}>{sub}</p>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                      <div>
+                        <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Valor {promoForm.type==="pct"?"%":"$"}</p>
+                        <input value={promoForm.val} onChange={e=>setPromoForm(f=>({...f,val:e.target.value.replace(/[^0-9.]/g,"")}))} placeholder={promoForm.type==="pct"?"20":"1.50"} style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:14}} />
+                      </div>
+                      <div>
+                        <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Aplica a</p>
+                        <select value={promoForm.appliesTo} onChange={e=>setPromoForm(f=>({...f,appliesTo:e.target.value}))} style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13,appearance:"none"}}>
+                          <option value="all">Todo el menú</option>
+                          {CATS.map(c=><option key={c.id} value="cat" onClick={()=>setPromoForm(f=>({...f,catId:c.id}))}>{c.emoji} {c.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <p style={{fontSize:12,fontWeight:700,color:C.light,marginBottom:8}}>Días activos</p>
+                    <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+                      {DAYS_ES.map((d,i) => {
+                        const on = promoForm.days.includes(i);
+                        return (
+                          <button key={i} onClick={()=>setPromoForm(f=>({...f,days:on?f.days.filter(x=>x!==i):[...f.days,i]}))} style={{padding:"7px 11px",background:on?"rgba(255,107,107,.2)":C.hi,color:on?"#FF6B6B":C.muted,border:"1.5px solid "+(on?"#FF6B6B":C.border),borderRadius:8,fontFamily:"'Nunito'",fontWeight:800,fontSize:12,cursor:"pointer"}}>
+                            {d}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button onClick={addPromo} style={{width:"100%",padding:13,background:promoSaved?"#FF6B6B":C.gold,color:"#0C0C10",border:"none",borderRadius:12,fontFamily:"'Nunito'",fontWeight:900,fontSize:15,cursor:"pointer",transition:"background .3s"}}>
+                      {promoSaved ? "✅ Promo creada!" : "Crear Promoción"}
+                    </button>
+                  </div>
+
+                  {/* Active today notice */}
+                  {activePromos.length > 0 && (
+                    <div style={{background:"rgba(255,107,107,.12)",border:"1px solid rgba(255,107,107,.3)",borderRadius:14,padding:"12px 14px"}}>
+                      <p style={{fontWeight:800,fontSize:13,color:"#FF6B6B",marginBottom:4}}>🔥 {activePromos.length} promo{activePromos.length!==1?"s":""} activa{activePromos.length!==1?"s":""} hoy</p>
+                      <p style={{color:C.muted,fontSize:12}}>Los clientes ya ven los descuentos en el menú</p>
+                    </div>
+                  )}
+
+                  {/* Promo list */}
+                  {promos.length===0 ? (
+                    <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin promociones creadas aún 🎉</p>
+                  ) : promos.map(p => (
+                    <div key={p.id} style={card({border:"1px solid "+(p.active?"rgba(255,107,107,.3)":C.border)})}>
+                      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                            <p style={{fontWeight:800,fontSize:14,color:p.active?"#FF6B6B":C.muted}}>{p.name}</p>
+                            {p.active && p.days.includes(todayDow) && <span style={{background:"rgba(46,189,107,.2)",color:C.green,fontSize:10,fontWeight:800,padding:"2px 8px",borderRadius:50}}>HOY</span>}
+                          </div>
+                          <p style={{fontSize:13,color:C.gold,fontWeight:700,marginBottom:4}}>{p.type==="pct"?p.val+"% descuento":"$"+p.val+" de descuento"} · {p.appliesTo==="all"?"Todo el menú":p.appliesTo==="cat"?p.catId:"Ítem específico"}</p>
+                          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                            {DAYS_ES.map((d,i)=>p.days.includes(i) ? <span key={i} style={{background:"rgba(255,107,107,.15)",color:"#FF6B6B",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:6}}>{d}</span>:null)}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:8,flexShrink:0}}>
+                          <button onClick={()=>togglePromo(p.id)} style={{background:p.active?"rgba(46,189,107,.2)":"rgba(255,255,255,.05)",border:"1px solid "+(p.active?"rgba(46,189,107,.4)":C.border),borderRadius:8,color:p.active?C.green:C.muted,fontSize:12,padding:"6px 10px",cursor:"pointer",fontWeight:700}}>
+                            {p.active?"ON":"OFF"}
+                          </button>
+                          <button onClick={()=>delPromo(p.id)} style={{background:"rgba(231,76,60,.15)",border:"1px solid rgba(231,76,60,.3)",borderRadius:8,color:C.red,fontSize:13,padding:"6px 10px",cursor:"pointer"}}>🗑️</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── HISTORIAL ── */}
+              {owTab==="hist" && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  <div style={{display:"flex",gap:8}}>
+                    <input value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="Buscar por nombre o # pedido..." style={{flex:1,background:C.sf,border:"1px solid "+C.border,borderRadius:12,padding:"10px 14px",color:C.white,fontFamily:"'Nunito'",fontSize:13}} />
+                    <button onClick={loadOrders} style={{background:C.hi,border:"1px solid "+C.border,borderRadius:12,color:C.muted,padding:"10px 14px",cursor:"pointer",fontSize:14}}>↻</button>
+                  </div>
+                  {custs.length > 0 && (
+                    <div style={card()}>
+                      <h3 style={{fontWeight:800,fontSize:13,color:C.light,marginBottom:12}}>👥 Clientes frecuentes</h3>
+                      {custs.slice(0,5).map((c,i) => (
+                        <div key={c.name} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                          <div style={{width:28,height:28,borderRadius:"50%",background:i===0?C.gold:C.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:i===0?"#0C0C10":C.muted,flexShrink:0}}>{i+1}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontWeight:800,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</p>
+                            <p style={{color:C.muted,fontSize:11}}>{c.count} pedido{c.count!==1?"s":""} · último: {c.last}</p>
+                          </div>
+                          <span style={{fontFamily:"'Bebas Neue'",fontSize:17,color:C.gold,flexShrink:0}}>{fmt(c.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p style={{color:C.muted,fontSize:12}}>{filtO.length} resultado{filtO.length!==1?"s":""}</p>
+                  {filtO.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin pedidos registrados</p> : filtO.map(o => (
+                    <div key={o.id} onClick={()=>setSelO(selO?.id===o.id?null:o)} style={{background:C.sf,borderRadius:16,padding:14,marginBottom:8,cursor:"pointer",border:"1px solid "+(selO?.id===o.id?C.gold:C.border),transition:"border-color .2s"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                        <div>
+                          <p style={{fontWeight:800,fontSize:13}}>#{pad(o.id)} · {o.customer?.name||"—"}</p>
+                          <p style={{color:C.muted,fontSize:11}}>{new Date(o.timestamp).toLocaleString("es-VE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</p>
+                          <div style={{display:"flex",gap:6,marginTop:4}}>
+                            {o.customer?.delivery==="delivery" && <span style={{background:C.gold+"22",color:C.gold,fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:50}}>🛵 Delivery</span>}
+                            {o.customer?.payment && <span style={{background:C.hi,color:C.muted,fontSize:10,padding:"2px 8px",borderRadius:50}}>{PAYMENTS.find(p=>p.id===o.customer.payment)?.icon} {PAYMENTS.find(p=>p.id===o.customer.payment)?.label}</span>}
+                          </div>
+                        </div>
+                        <span style={{fontFamily:"'Bebas Neue'",fontSize:20,color:C.gold,flexShrink:0}}>{fmt(o.total)}</span>
+                      </div>
+                      {selO?.id===o.id && (
+                        <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid "+C.border}}>
+                          {o.items?.map(i => <p key={i.id+i.name} style={{fontSize:12,color:C.light,marginBottom:3}}>{i.qty}x {i.name} — {fmt(i.price*i.qty)}</p>)}
+                          {o.customer?.address && <p style={{fontSize:12,color:C.blue,marginTop:6}}>📍 {o.customer.address}</p>}
+                          {o.notes && <p style={{fontSize:12,color:C.gold,marginTop:4}}>📝 {o.notes}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={clearOrders} style={{background:"transparent",border:"1px solid "+C.red,borderRadius:12,color:C.red,fontFamily:"'Nunito'",fontWeight:700,fontSize:13,padding:10,cursor:"pointer"}}>🗑️ Limpiar historial</button>
+                </div>
+              )}
+
+              {/* ── CLUB PANEL ── */}
+              {owTab==="club" && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                    {[
+                      {l:"Socios",     v:mbrs.length,                                    e:"👥", c:C.gold},
+                      {l:"Pts Total",  v:mbrs.reduce((s,m)=>s+m.points,0),               e:"⭐", c:C.purple},
+                      {l:"Con Premio", v:mbrs.filter(m=>m.points>=REWARDS[0].pts).length, e:"🏆", c:C.green},
+                    ].map(s => (
+                      <div key={s.l} style={card({textAlign:"center",padding:"14px 10px"})}>
+                        <p style={{fontSize:20,marginBottom:6}}>{s.e}</p>
+                        <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:s.c}}>{s.v}</p>
+                        <p style={{color:C.muted,fontSize:10,marginTop:2}}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={card()}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <h3 style={{fontWeight:800,fontSize:14,color:C.light}}>🏆 Ranking de socios</h3>
+                      <button onClick={loadMbrs} style={{background:"transparent",border:"none",color:C.muted,fontSize:12,cursor:"pointer"}}>↻</button>
+                    </div>
+                    {mbrs.length===0 ? <p style={{color:C.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin socios aún 🌵</p> : mbrs.sort((a,b)=>b.points-a.points).map((m,i) => (
+                      <div key={m.phone} style={{background:selM?.phone===m.phone?C.hi:C.bg,borderRadius:14,padding:"12px 14px",marginBottom:8,cursor:"pointer",border:"1px solid "+(selM?.phone===m.phone?C.gold:C.border),transition:"all .2s"}} onClick={()=>setSelM(selM?.phone===m.phone?null:m)}>
+                        <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{width:32,height:32,borderRadius:"50%",background:i===0?C.gold:i===1?"#C0C0C0":i===2?"#CD7F32":C.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:i<3?"#0C0C10":C.muted,flexShrink:0}}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontWeight:800,fontSize:13}}>{m.name||"Sin nombre"}</p>
+                            <p style={{color:C.muted,fontSize:11}}>{m.phone}</p>
+                            {REWARDS.filter(r=>r.pts<=m.points).length>0 && (
+                              <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>
+                                {REWARDS.filter(r=>r.pts<=m.points).map(r => <span key={r.pts} style={{background:r.color+"22",color:r.color,fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:50}}>OK {r.label}</span>)}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <p style={{fontFamily:"'Bebas Neue'",fontSize:22,color:C.gold}}>{m.points}</p>
+                            <p style={{fontSize:10,color:C.muted}}>puntos</p>
+                          </div>
+                        </div>
+                        {nxtRw(m.points) && (
+                          <div style={{marginTop:10}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.muted,marginBottom:3}}><span>{nxtRw(m.points).label}</span><span>{m.points}/{nxtRw(m.points).pts}</span></div>
+                            <div style={{height:4,background:C.border,borderRadius:2}}><div style={{height:"100%",background:C.gold,borderRadius:2,width:Math.min(100,(m.points/nxtRw(m.points).pts)*100)+"%"}} /></div>
+                          </div>
+                        )}
+                        {selM?.phone===m.phone && (
+                          <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid "+C.border}} onClick={e=>e.stopPropagation()}>
+                            <p style={{fontSize:13,fontWeight:700,color:C.light,marginBottom:10}}>Canjear recompensa:</p>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+                              {REWARDS.filter(r=>r.pts<=m.points).map(r => (
+                                <button key={r.pts} onClick={()=>setDAmt(String(r.pts))} style={{background:r.color+"22",border:"1px solid "+r.color+"55",borderRadius:50,padding:"5px 12px",color:r.color,fontFamily:"'Nunito'",fontWeight:700,fontSize:11,cursor:"pointer"}}>{r.emoji} {r.label} (-{r.pts}pts)</button>
+                              ))}
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <input value={dAmt} onChange={e=>setDAmt(e.target.value.replace(/\D/g,""))} placeholder="Pts a descontar" style={{flex:1,background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13}} />
+                              <button onClick={doDeduct} style={{background:dOk?C.green:C.red,color:"#fff",border:"none",borderRadius:10,padding:"9px 16px",fontFamily:"'Nunito'",fontWeight:800,fontSize:13,cursor:"pointer",transition:"background .2s"}}>{dOk?"✅ Listo":"Canjear"}</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── CONFIG ── */}
+              {owTab==="cfg" && (
+                <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                  <div style={card({padding:18})}>
+                    <h3 style={{fontWeight:800,fontSize:14,color:C.gold,marginBottom:16}}>⚙️ Configuración</h3>
+                    {[
+                      {l:"📲 WhatsApp",  s:"Actual: "+cfgWA,   v:nWA,   fn:setNWA,   ph:"58412XXXXXXX"},
+                      {l:"🔔 Tema ntfy", s:"Actual: "+cfgNtfy, v:nNtfy, fn:setNNtfy, ph:"mi-tema-unico"},
+                    ].map(f => (
+                      <div key={f.l} style={{marginBottom:14}}>
+                        <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:3}}>{f.l}</label>
+                        <p style={{color:C.muted,fontSize:11,marginBottom:6}}>{f.s}</p>
+                        <input value={f.v} onChange={e=>f.fn(e.target.value)} placeholder={f.ph} style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:13}} />
+                      </div>
+                    ))}
+                    <div style={{marginBottom:18}}>
+                      <label style={{fontSize:13,fontWeight:700,color:C.light,display:"block",marginBottom:3}}>🔐 Nuevo PIN (4 dígitos)</label>
+                      <input value={nPin} onChange={e=>setNPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="Nuevo PIN" style={{width:"100%",background:C.bg,border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",color:C.white,fontFamily:"'Nunito'",fontSize:16,letterSpacing:8}} />
+                    </div>
+                    <button onClick={saveCfg} style={{...goldBtn({width:"100%",padding:13,fontSize:15,borderRadius:14,background:cfgSaved?C.green:C.gold,transition:"background .3s"})}}>
+                      {cfgSaved ? "✅ Guardado!" : "Guardar Cambios"}
+                    </button>
+                  </div>
+                  <div style={card()}>
+                    <h3 style={{fontWeight:800,fontSize:13,color:C.gold,marginBottom:12}}>📖 Cómo acceder al panel</h3>
+                    {[["🔒","Toca el logo CACTUS BURGER 5 veces"],["🔑","Ingresa tu PIN de 4 dígitos (default: 1234)"],["📊","Accedes al panel de administración completo"],["🔔","Instala la app ntfy y suscríbete al tema para alertas en tiempo real"]].map(([e,t]) => (
+                      <div key={t} style={{display:"flex",gap:10,marginBottom:10}}><span style={{fontSize:16,flexShrink:0}}>{e}</span><p style={{fontSize:13,color:C.light,lineHeight:1.5}}>{t}</p></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+
+  </script>
+</body>
+</html>
